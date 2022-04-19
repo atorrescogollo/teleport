@@ -17,18 +17,23 @@ limitations under the License.
 package srv
 
 import (
+	"fmt"
+	"os"
 	"os/user"
+	"path/filepath"
 
+	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/teleport/lib/utils/host"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // newHostUsersBackend initializes a new OS specific HostUsersBackend
 func newHostUsersBackend() (HostUsersBackend, error) {
-	return &HostUsersProvisioningBackend{}, nil
+	return &HostUsersProvisioningBackend{
+		sudoersPath: "/etc/sudoers.d",
+	}, nil
 }
-
-var _ HostUsersBackend = &HostUsersProvisioningBackend{}
 
 // Lookup implements host user information lookup
 func (*HostUsersProvisioningBackend) Lookup(username string) (*user.User, error) {
@@ -70,4 +75,51 @@ func (*HostUsersProvisioningBackend) DeleteUser(name string) error {
 		return trace.Wrap(ErrUserLoggedIn)
 	}
 	return trace.Wrap(err)
+}
+
+// CheckSudoers ensures that a sudoers file to be written is valid
+func (*HostUsersProvisioningBackend) CheckSudoers(contents []byte) error {
+	err := host.CheckSudoers(contents)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func writeSudoersFile(name string, data []byte) error {
+	// from os.Writefile
+	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0440)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = f.Write(data)
+	if err1 := f.Close(); err1 != nil && err == nil {
+		err = err1
+	}
+	return trace.Wrap(err)
+}
+
+// WriteSudoersFile creates the user's sudoers file.
+func (u *HostUsersProvisioningBackend) WriteSudoersFile(username string, contents []byte) error {
+	if err := u.CheckSudoers(contents); err != nil {
+		return trace.Wrap(err)
+	}
+	sudoersFilePath := filepath.Join(u.sudoersPath, fmt.Sprintf("%s-%s", "teleport", username))
+	if utils.FileExists(sudoersFilePath) {
+		return trace.Errorf("sudoers file %q already exists", sudoersFilePath)
+	}
+	err := writeSudoersFile(sudoersFilePath, contents)
+	return trace.Wrap(err)
+}
+
+// RemoveSudoersFile deletes a user's sudoers file.
+func (u *HostUsersProvisioningBackend) RemoveSudoersFile(username string) error {
+	sudoersFilePath := filepath.Join(u.sudoersPath, fmt.Sprintf("%s-%s", "teleport", username))
+	if _, err := os.Stat(sudoersFilePath); os.IsNotExist(err) {
+		log.Debugf("User %q, did not have sudoers file as it did not exist at path %q",
+			username,
+			sudoersFilePath)
+		return nil
+	}
+	return trace.Wrap(os.Remove(sudoersFilePath))
 }

@@ -21,6 +21,7 @@ package integration
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"os/user"
 	"testing"
@@ -63,7 +64,7 @@ func TestRootHostUsersBackend(t *testing.T) {
 		require.True(t, trace.IsAlreadyExists(err))
 	})
 
-	t.Run("Test CreateUser", func(t *testing.T) {
+	t.Run("Test CreateUser and group", func(t *testing.T) {
 		err := backend.CreateUser(testuser, []string{testgroup})
 		require.NoError(t, err)
 
@@ -105,6 +106,15 @@ func TestRootHostUsersBackend(t *testing.T) {
 		users, err := backend.GetAllUsers()
 		require.NoError(t, err)
 		require.Subset(t, users, append(checkUsers, "root"))
+	})
+
+	t.Run("Test sudoers", func(t *testing.T) {
+		validSudoersEntry := []byte("root ALL=(ALL) ALL")
+		err := backend.CheckSudoers(validSudoersEntry)
+		require.NoError(t, err)
+		invalidSudoersEntry := []byte("yipee i broke sudo!!!!")
+		err = backend.CheckSudoers(invalidSudoersEntry)
+		require.EqualError(t, err, "parse error in stdin near line 1\n\n\tvisudo: invalid sudoers file")
 	})
 }
 
@@ -166,6 +176,39 @@ func TestRootHostUsers(t *testing.T) {
 		require.NoError(t, closer.Close())
 		_, err = user.Lookup(testuser)
 		require.Equal(t, err, user.UnknownUserError(testuser))
+	})
+
+	t.Run("test create sudoers enabled users", func(t *testing.T) {
+		cl := &mockSessionTrackerClient{}
+		users, err := srv.NewHostUsers(context.Background(), "host_uuid", cl)
+		require.NoError(t, err)
+
+		t.Cleanup(func() {
+			os.Remove("/etc/sudoers.d/teleport-" + testuser)
+			host.UserDel(testuser)
+		})
+		_, closer, err := users.CreateUser(testuser,
+			&services.HostUsersInfo{
+				Sudoers: []string{"root ALL=(ALL) ALL"},
+			})
+		require.NoError(t, err)
+		_, err = os.Stat("/etc/sudoers.d/teleport-" + testuser)
+		require.NoError(t, err)
+
+		// delete the user and ensure the sudoers file got deleted
+		require.NoError(t, closer.Close())
+		_, err = os.Stat("/etc/sudoers.d/teleport-" + testuser)
+		require.True(t, os.IsNotExist(err))
+
+		// ensure invalid sudoers entries dont get written
+		_, closer, err = users.CreateUser(testuser,
+			&services.HostUsersInfo{
+				Sudoers: []string{"badsudoers entry!!!"},
+			})
+		require.Error(t, err)
+		defer closer.Close()
+		_, err = os.Stat("/etc/sudoers.d/teleport-" + testuser)
+		require.True(t, os.IsNotExist(err))
 	})
 
 	t.Run("test delete all users in teleport service group", func(t *testing.T) {
