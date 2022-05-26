@@ -44,7 +44,7 @@ resource "aws_launch_configuration" "node" {
   user_data                   = templatefile(
     "${path.module}/node-user-data.tpl",
     {
-      region           = var.region
+      region           = data.aws_region.current.name
       cluster_name     = var.cluster_name
       telegraf_version = var.telegraf_version
       auth_server_addr = aws_lb.auth.dns_name
@@ -57,4 +57,3 @@ resource "aws_launch_configuration" "node" {
   security_groups             = [aws_security_group.node.id]
   iam_instance_profile        = aws_iam_instance_profile.node.id
 }
-

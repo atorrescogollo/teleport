@@ -17,9 +17,7 @@ data "aws_caller_identity" "current" {
 
 // Use current region of the credentials in some parts of the script,
 // could be as well hardcoded.
-data "aws_region" "current" {
-  name = var.region
-}
+data "aws_region" "current" {}
 
 data "aws_availability_zones" "available" {
 }
@@ -33,4 +31,3 @@ locals {
 data "aws_kms_alias" "ssm" {
   name = var.kms_alias_name
 }
-

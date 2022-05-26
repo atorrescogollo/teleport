@@ -50,7 +50,7 @@ resource "aws_launch_configuration" "auth" {
   user_data                   = templatefile(
     "${path.module}/auth-user-data.tpl",
     {
-      region                   = var.region
+      region                   = data.aws_region.current.name
       locks_table_name         = aws_dynamodb_table.locks.name
       auth_server_addr         = aws_lb.auth.dns_name
       cluster_name             = var.cluster_name
@@ -72,4 +72,3 @@ resource "aws_launch_configuration" "auth" {
   security_groups             = [aws_security_group.auth.id]
   iam_instance_profile        = aws_iam_instance_profile.auth.id
 }
-

@@ -1,8 +1,3 @@
-// Region is AWS region, the region should support EFS
-variable "region" {
-  type = string
-}
-
 // Script creates a separate VPC with demo deployment
 variable "vpc_cidr" {
   type    = string
