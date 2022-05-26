@@ -44,10 +44,10 @@ resource "aws_launch_configuration" "auth" {
   lifecycle {
     create_before_destroy = true
   }
-  name_prefix                 = "${var.cluster_name}-auth-"
-  image_id                    = data.aws_ami.base.id
-  instance_type               = var.auth_instance_type
-  user_data                   = templatefile(
+  name_prefix   = "${var.cluster_name}-auth-"
+  image_id      = data.aws_ami.base.id
+  instance_type = var.auth_instance_type
+  user_data = templatefile(
     "${path.module}/auth-user-data.tpl",
     {
       region                   = data.aws_region.current.name

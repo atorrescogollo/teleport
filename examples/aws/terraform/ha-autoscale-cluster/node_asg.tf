@@ -38,10 +38,10 @@ resource "aws_launch_configuration" "node" {
   lifecycle {
     create_before_destroy = true
   }
-  name_prefix                 = "${var.cluster_name}-node-"
-  image_id                    = data.aws_ami.base.id
-  instance_type               = var.node_instance_type
-  user_data                   = templatefile(
+  name_prefix   = "${var.cluster_name}-node-"
+  image_id      = data.aws_ami.base.id
+  instance_type = var.node_instance_type
+  user_data = templatefile(
     "${path.module}/node-user-data.tpl",
     {
       region           = data.aws_region.current.name

@@ -138,7 +138,7 @@ variable "grafana_pass" {
 // Whether to use Amazon-issued certificates via ACM or not
 // This must be set to true for any use of ACM whatsoever, regardless of whether Terraform generates/approves the cert
 variable "use_acm" {
-  type = string
+  type    = string
   default = "false"
 }
 
@@ -150,6 +150,6 @@ variable "use_acm" {
 // it can be used by applications which connect to it directly (like kubectl) rather
 // than discovering the NLB's address through the Teleport API (like tsh does)
 variable "route53_domain_acm_nlb_alias" {
-  type = string
+  type    = string
   default = ""
 }
